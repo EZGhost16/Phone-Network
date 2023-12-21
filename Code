@@ -1,0 +1,405 @@
+"""
+File:    network.py
+Author:  Eden Zhang
+Date:    11/25/2023
+E-mail:  ezhang1@umbc.edu
+Description:
+  Simulates an old phone network with switchboards labeled with area codes, phone numbers that connect to a
+  respective area code, and switchboards that connect to each other. With that, we can connect phone calls and
+  disconnect when needed.
+"""
+import json
+
+HYPHEN = "-"
+QUIT = 'quit'
+SWITCH_CONNECT = 'switch-connect'
+SWITCH_ADD = 'switch-add'
+PHONE_ADD = 'phone-add'
+NETWORK_SAVE = 'network-save'
+NETWORK_LOAD = 'network-load'
+START_CALL = 'start-call'
+END_CALL = 'end-call'
+DISPLAY = 'display'
+LENGTH_AREA = 3
+DISCONNECTED = 0
+
+
+def connect_switchboards(switchboards, area_1, area_2):
+    """
+    Connects the two area codes after checking that the connections are already there
+    :param switchboards: Dictionary with the network info
+    :param area_1: Area code of a switchboard
+    :param area_2: Area code of the second switchboard to be connected
+    :return: Updated switchboard
+    """
+    # Checks that the switchboards exist
+    if f"{area_1}" not in switchboards or f"{area_2}" not in switchboards:
+        print("One of the switchboards given does not exist.")
+
+    # Checks that the connection doesn't already exist
+    elif (f'{area_1}' not in switchboards[f'{area_2}']
+            and f'{area_2}' not in switchboards[f'{area_1}']):
+        switchboards[f'{area_1}'].append(f'{area_2}')
+        switchboards[f'{area_2}'].append(f'{area_1}')
+
+    else:
+        print("Those area codes are already connected to each other.")
+
+    return switchboards
+
+
+def add_switchboard(switchboards, area_code):
+    """
+    Adds in new switchboards if they don't already exist
+    :param switchboards: The network of switchboards (dictionary)
+    :param area_code: The area code that will be assigned to each new switchboard
+    :return: Updated switchboards
+    """
+
+    # Checks that the new switchboard doesn't already exist, then adds the new switchboard
+    if f'{area_code}' not in switchboards:
+        switchboards[f'{area_code}'] = []
+    else:
+        print("That area code already exists.")
+
+    return switchboards
+
+
+def add_phone(switchboards, area_code, phone_number):
+    """
+    Adds in a new phone number and connects it to its associated area code/switchboard
+    :param switchboards: Dictionary of switches
+    :param area_code: Area code
+    :param phone_number: New phone number
+    :return: Updated switchboards
+    """
+    number_check = False
+
+    # Checks to make sure the phone number doesn't already exist before adding it
+    for outer_key in switchboards:
+        for inner_value in switchboards[outer_key]:
+
+            # Only checks phone number dictionaries
+            if len(inner_value) != LENGTH_AREA:
+                if f'{phone_number}' in inner_value:
+                    # The phone number is found, which means it cannot be added
+                    number_check = True
+
+    # If the phone number doesn't exist, then we can add it
+    if f'{area_code}' not in switchboards:
+        print("That area code does not exist.")
+
+    elif number_check == False:
+        # Each phone number is a dictionary to store
+        switchboards[f'{area_code}'].append({f'{phone_number}': DISCONNECTED})
+
+    else:
+        print("That phone number already exists.")
+
+    return switchboards
+
+
+def save_network(switchboards, file_name):
+    """
+    Saves the switchboards dictionary into a separate JSON file labeled network
+    :param switchboards: Dictionary of the network that's to be saved
+    :param file_name: Name of the file used to save the switchboards data
+    :return: The saved switchboards file, or netfile
+    """
+    # Before saving the switchboards, we need to disconnect all the phones
+    for code in switchboards:
+        for phone in switchboards[code]:
+            if len(phone) != LENGTH_AREA:
+                for x_number in phone:
+                    if phone[x_number] != DISCONNECTED:
+                        phone[x_number] = DISCONNECTED
+
+    # Converts the dictionary into a JSON Object for proper storing
+    json_network = json.dumps(switchboards, indent=len(switchboards))
+
+    # Writing to the file
+    with open(file_name, 'w') as netfile:
+        netfile.write(json_network)
+
+    return netfile
+
+
+def load_network(file_name):
+    """
+    Loads the saved switchboards data from a JSON object file to a dictionary again
+    :param file_name: the name of the file to load.
+    :return: the new switchboard network.
+    """
+    with open(file_name, 'r') as netfile:
+        json_network = json.load(netfile)
+
+    return json_network
+
+
+def connection_verifier(switchboards, number1, number2):
+    """
+    Checks if the two phone numbers are free to connect to one another, or not. If the connection can be made
+    then it will connect the phone numbers in Switchboards
+    :param switchboards: Switchboard info
+    :param number1: Phone number to be connected
+    :param number2: Phone number to be connected
+    :return: True for if the connection can be made, False if it cannot be made
+    """
+    # Error prevention
+    number1_value = -1
+    number2_value = -1
+
+    # Looks for the phone numbers
+    for outer_key in switchboards:
+        for inner_value in switchboards[outer_key]:
+            # Only checks phone number dictionaries
+            if len(inner_value) != LENGTH_AREA:
+                if f'{number1}' in inner_value:
+                    number1_value = inner_value[f'{number1}']
+                if f'{number2}' in inner_value:
+                    number2_value = inner_value[f'{number2}']
+
+    # Once the phone numbers have been found, we check if they can be connected and then signal back to the start_call
+    if number1_value == DISCONNECTED and number2_value == DISCONNECTED:
+        return True
+    else:
+        return False
+
+
+def phone_connector(switchboards, number1, number2):
+    """
+    Helper function that connects the two phone numbers
+    :param switchboards: The network info
+    :param number1:
+    :param number2:
+    :return: Updated network
+    """
+    # Looks for the phone numbers
+    for outer_key in switchboards:
+        for inner_value in switchboards[outer_key]:
+
+            # Only checks phone number dictionaries
+            if len(inner_value) != LENGTH_AREA:
+
+                if f'{number1}' in inner_value:
+                    target1 = inner_value
+
+                if f'{number2}' in inner_value:
+                    target2 = inner_value
+
+    # Note: Add the area code of the number being added
+    target1[f'{number1}'] = f'{number2}'
+    target2[f'{number2}'] = f'{number1}'
+
+    return switchboards
+
+
+def start_call(switchboards, start_area, start_number, end_area, end_number):
+    """
+    Main function that will connect phone numbers after verifying that they can be connected
+    :param switchboards: Network info
+    :param start_area: Area code of the first phone number
+    :param start_number: The first phone number
+    :param end_area: Area code of the second phone number
+    :param end_number: The second phone number
+    :return: Updated network
+    """
+    # Find a path to check that the two phone numbers can be connected
+    path = call_path_helper(switchboards, start_area, end_area)
+
+    # Condition to see if the connection can be made
+    if len(path) > 0 and connection_verifier(switchboards, start_number, end_number):
+
+        # Connects the phone numbers
+        switchboards = phone_connector(switchboards, start_number, end_number)
+        print(f"{start_area}" + HYPHEN + f"{start_number} and {end_area}" + HYPHEN + f"{end_number} are now connected.")
+
+    else:
+        print(f"{start_area}" + HYPHEN + f"{start_number} and {end_area}" + HYPHEN + f"{end_number} "
+                                                                                     f"were not connected.")
+
+    return switchboards
+
+
+def call_path_helper(switchboards, start_area, end_area):
+    """
+    Helps the recursive function call_path by setting up variables
+    :param switchboards: Network info
+    :param start_area: start area code
+    :param end_area: end area code
+    :return: calls call_path with its path list
+    """
+    # Creates a dictionary to track all the switchboards that have been visited
+    visited = {}
+
+    # Creates a copy of the dictionary, but sets each node to False in order to track where the program has visited
+    for place in switchboards:
+        visited[place] = False
+
+    return call_path(switchboards, start_area, end_area, visited)
+
+
+def call_path(switchboards, start_area, end_area, visited):
+    """
+    Path-finds through the switchboard to check that the two phone numbers can be connected.
+    The method is checking every node by visiting them, marking those visits, and forming a path if there is one
+    :param switchboards: Network info
+    :param start_area: 1st phone number
+    :param end_area: 2nd phone number
+    :param visited: The dictionary of nodes to track visits
+    :return: the path found
+    """
+    # Tracks the path that is made
+    path = []
+
+    # Base case where the code finds a path to the end
+    if f'{start_area}' == f'{end_area}':
+        return [f'{end_area}']
+
+    # Tracks visited areas
+    visited[f'{start_area}'] = True
+
+    # Loops through the list
+    for next_code in switchboards[f'{start_area}']:
+        # Makes sure that we only look at the area codes
+        if len(next_code) == LENGTH_AREA:
+            if not visited[f'{next_code}']:
+                path = call_path(switchboards, next_code, end_area, visited)
+            if path:
+                return [f'{start_area}'] + path
+
+    visited[f'{start_area}'] = False
+
+    return path
+
+
+def end_call(switchboards, start_area, start_number):
+    """
+    Disconnects the given number and the number that it was connected to
+    :param switchboards: switchboard info
+    :param start_area: phone number's area code/switchboard
+    :param start_number: phone number
+    :return: updated switchboard
+    """
+
+    # Looks for the phone numbers
+    for inner_value in switchboards[f'{start_area}']:
+        # Only checks phone number dictionaries
+        if len(inner_value) != LENGTH_AREA:
+            if f'{start_number}' in inner_value:
+                target1 = inner_value
+
+    # Checks that the phone number is connected
+    if target1[f'{start_number}'] != DISCONNECTED:
+        # Disconnects the first number
+        end_number = target1[f'{start_number}']
+        target1[f'{start_number}'] = DISCONNECTED
+
+        # Process to disconnect the second number
+        for outer_key in switchboards:
+            for inner_value in switchboards[outer_key]:
+
+                # Only checks phone number dictionaries
+                if len(inner_value) != LENGTH_AREA:
+                    if f'{end_number}' in inner_value:
+                        target2 = inner_value
+
+        target2[f'{end_number}'] = DISCONNECTED
+        print(f"{start_area}" + HYPHEN + f"{start_number} is disconnected.")
+
+    else:
+        print(f"{start_area}" + HYPHEN + f"{start_number} is not in use.")
+
+    return switchboards
+
+
+def display(switchboards):
+    """
+    Displays the current state of the network.
+    :param switchboards: Network info
+    :return: Nothing, it just prints out the info
+    """
+
+    # Error prevention
+    second_area_code = -1
+
+    # Goes through each area code in the network
+    for area in switchboards:
+        print("Switchboard with area code:", area)
+
+        # Prints out each area code it's connected to through trunk lines
+        print(" Trunk lines are:")
+
+        # Iterates through each area code connected to the current area
+        for trunk_code in switchboards[area]:
+            # Checks only for area codes
+            if len(trunk_code) == LENGTH_AREA:
+                print(f"    Trunk line connection to: {trunk_code}.")
+
+        # Listing off the phone numbers now
+        print(" Local phone numbers are:")
+        for inner_value in switchboards[area]:
+
+            # Only checks phone number dictionaries
+            if len(inner_value) != LENGTH_AREA:
+                key_number_list = list(inner_value.keys())
+                key_number = key_number_list[0]
+
+                if inner_value[key_number] == DISCONNECTED:
+                    print(f"    Phone with number: {key_number} is not in use.")
+
+                else:
+                    # Finds the second area code needed for the print statement
+                    for outer_key in switchboards:
+                        for other_value in switchboards[outer_key]:
+                            # Only checks phone number dictionaries
+                            if len(other_value) != LENGTH_AREA:
+                                if f'{inner_value[key_number]}' in other_value:
+                                    second_area_code = outer_key
+
+                    print(f"    Phone with number: {key_number} is connected to {second_area_code}" + HYPHEN +
+                          f"{inner_value[key_number]}.")
+
+
+if __name__ == '__main__':
+    switchboards = {}
+    s = input('Enter command: ')
+    while s.strip().lower() != QUIT:
+        split_command = s.split()
+        if len(split_command) == 3 and split_command[0].lower() == SWITCH_CONNECT:
+            area_1 = int(split_command[1])
+            area_2 = int(split_command[2])
+            connect_switchboards(switchboards, area_1, area_2)
+        elif len(split_command) == 2 and split_command[0].lower() == SWITCH_ADD:
+            add_switchboard(switchboards, int(split_command[1]))
+        elif len(split_command) == 2 and split_command[0].lower() == PHONE_ADD:
+            number_parts = split_command[1].split('-')
+            area_code = int(number_parts[0])
+            phone_number = int(''.join(number_parts[1:]))
+            add_phone(switchboards, area_code, phone_number)
+        elif len(split_command) == 2 and split_command[0].lower() == NETWORK_SAVE:
+            save_network(switchboards, split_command[1])
+            print('Network saved to {}.'.format(split_command[1]))
+        elif len(split_command) == 2 and split_command[0].lower() == NETWORK_LOAD:
+            switchboards = load_network(split_command[1])
+            print('Network loaded from {}.'.format(split_command[1]))
+        elif len(split_command) == 3 and split_command[0].lower() == START_CALL:
+            src_number_parts = split_command[1].split(HYPHEN)
+            src_area_code = int(src_number_parts[0])
+            src_number = int(''.join(src_number_parts[1:]))
+
+            dest_number_parts = split_command[2].split(HYPHEN)
+            dest_area_code = int(dest_number_parts[0])
+            dest_number = int(''.join(dest_number_parts[1:]))
+            start_call(switchboards, src_area_code, src_number, dest_area_code, dest_number)
+
+        elif len(split_command) == 2 and split_command[0].lower() == END_CALL:
+            number_parts = split_command[1].split(HYPHEN)
+            area_code = int(number_parts[0])
+            number = int(''.join(number_parts[1:]))
+            end_call(switchboards, area_code, number)
+
+        elif len(split_command) >= 1 and split_command[0].lower() == DISPLAY:
+            display(switchboards)
+
+        s = input('Enter command: ')
